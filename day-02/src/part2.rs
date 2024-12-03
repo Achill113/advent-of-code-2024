@@ -1,16 +1,21 @@
+type Report = Vec<i32>;
+
 #[tracing::instrument]
 pub fn process(_input: &str) -> miette::Result<String> {
     let mut result = 0;
-    for (index, report) in _input.lines().enumerate() {
+    for (index, report_str) in _input.lines().enumerate() {
         println!("Report: {index}");
 
-        let levels: Vec<i32> = report.split_whitespace().map(|x| x.parse::<i32>().unwrap()).collect();
+        let report: Report = report_str
+            .split_whitespace()
+            .map(|x| x.parse::<i32>().unwrap())
+            .collect();
         let mut last_level = -1;
         let mut direction = 0;
         let mut safe = true;
         let mut skipped = false;
 
-        for (index, level) in levels.iter().enumerate() {
+        for (index, level) in report.iter().enumerate() {
             if last_level != -1 {
                 if direction == 0 {
                     if *level > last_level {
@@ -40,7 +45,7 @@ pub fn process(_input: &str) -> miette::Result<String> {
                 }
             } else {
                 if !skipped {
-                    let next_level: i32 = levels[index + 1];
+                    let next_level: i32 = report[index + 1];
 
                     if (level - next_level).abs() > 3 || (level - next_level).abs() < 1 {
                         skipped = true;
@@ -59,6 +64,74 @@ pub fn process(_input: &str) -> miette::Result<String> {
     }
 
     Ok(result.to_string())
+}
+
+enum Direction {
+    increasing,
+    decreasing,
+}
+
+fn check_safety(report: &Report) -> Result<(), String> {
+    let mut last_level = -1;
+    let mut direction: Option<Direction> = None;
+    let mut safe = true;
+    let mut skipped = false;
+
+    for (index, level) in report.iter().enumerate() {
+        if last_level != -1 {
+            if direction.is_none() {
+                if *level > last_level {
+                    direction = Some(Direction::increasing);
+                } else {
+                    direction = Some(Direction::decreasing);
+                }
+            }
+
+            let diff = level - last_level;
+
+            match diff.signum() {
+                1 => {
+                    match direction {
+                        Some(Direction::increasing) => {
+                            if !(1..=3).contains(&diff.abs()) {
+                                Err(format!("Diff out of range"));
+                            }
+                        }
+                        Some(Direction::decreasing) => {
+                            Err(format!("Direction changed"));
+                        }
+                        None => panic!(),
+                    };
+                }
+                -1 => {
+                    todo!();
+                }
+                0 => Err(format!("Diff was zero")),
+            };
+
+            if !safe && !skipped {
+                safe = true;
+                skipped = true;
+                if index == 1 {
+                    direction = None;
+                }
+                continue;
+            }
+        } else {
+            if !skipped {
+                let next_level: i32 = report[index + 1];
+
+                if (level - next_level).abs() > 3 || (level - next_level).abs() < 1 {
+                    skipped = true;
+                    continue;
+                }
+            }
+        }
+
+        last_level = *level;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
