@@ -1,28 +1,14 @@
 #[tracing::instrument]
 pub fn process(_input: &str) -> miette::Result<String> {
     let mut diff: i32 = 0;
-    let mut left_location_ids: Vec<i32> = Vec::<i32>::new();
-    let mut right_location_ids: Vec<i32> = Vec::<i32>::new();
-    let rows: Vec<&str> = _input.lines().collect();
+    let mut left_location_ids = vec![];
+    let mut right_location_ids = vec![];
 
-    for row in rows.into_iter() {
-        let location_ids: Vec<&str> = row.split("   ").collect();
+    for line in _input.lines() {
+        let mut location_ids = line.split_whitespace();
 
-        let left_str = location_ids[0];
-        let right_str = location_ids[1];
-
-        match left_str.parse::<i32>() {
-            Ok(left) => {
-                match right_str.parse::<i32>() {
-                    Ok(right) => {
-                        left_location_ids.push(left);
-                        right_location_ids.push(right);
-                    },
-                    Err(e) => panic!("Failed to parse int: {} ({right_str})", e)
-                }
-            },
-            Err(e) => panic!("Failed to parse int: {} ({left_str})", e)
-        }
+        left_location_ids.push(location_ids.next().unwrap().parse::<i32>().unwrap());
+        right_location_ids.push(location_ids.next().unwrap().parse::<i32>().unwrap());
     }
 
     left_location_ids.sort();
