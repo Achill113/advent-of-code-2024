@@ -1,8 +1,10 @@
 use std::cmp;
 
+use tracing::instrument;
+
 const TARGET: &str = "XMAS";
 
-#[tracing::instrument]
+#[instrument]
 pub fn process(_input: &str) -> miette::Result<String> {
     let mut result = 0;
     let letter_matrix: Vec<Vec<char>> = _input.lines().map(|line| line.chars().collect()).collect();
@@ -10,60 +12,72 @@ pub fn process(_input: &str) -> miette::Result<String> {
 
     for (y, line) in letter_matrix.clone().into_iter().enumerate() {
         for (x, char) in line.iter().enumerate() {
-            print!("{char}");
             if char == &'X' {
-                println!("\nFound X at {x}, {y}");
-                let mut current_position: [usize; 2] = [x, y];
+                let current_position: [usize; 2] = [x, y];
                 let mut char_index = 1;
                 let mut target_char = TARGET.chars().nth(char_index).unwrap();
 
-                if let Some(direction) = check_neighbors(
+                if let Some(directions) = check_neighbors(
                     &letter_matrix,
                     current_position,
                     [line.len(), row_count],
                     &target_char,
                 ) {
-                    let new_position = [
-                        current_position[0] as isize + (direction[0] * 2),
-                        current_position[1] as isize + (direction[1] * 2),
-                    ];
-                    if new_position[0] >= 0
-                        && new_position[1] >= 0
-                        && new_position[0] < line.len() as isize
-                        && new_position[1] < row_count as isize
-                    {
-                        current_position[0] = new_position[0] as usize;
-                        current_position[1] = new_position[1] as usize;
+                    // loop through all Ms surrounding the current X
+                    for direction in directions {
+                        // reset back to the current_position for each loop
+                        let mut inner_position = current_position.clone();
 
-                        char_index += 1;
-                        target_char = TARGET.chars().nth(char_index).unwrap();
+                        let new_position = [
+                            inner_position[0] as isize + (direction[0] * 2), // multiply by 2 because we need to skip past the M we already found and check if the next char in this direction is A
+                            inner_position[1] as isize + (direction[1] * 2),
+                        ];
 
-                        while check_char_at_position(&letter_matrix, current_position, &target_char)
+                        // check that we're still in bounds
+                        if new_position[0] >= 0
+                            && new_position[1] >= 0
+                            && new_position[0] < line.len() as isize
+                            && new_position[1] < row_count as isize
                         {
-                            if char_index == TARGET.len() - 1 {
-                                result += 1;
-                                break;
-                            }
-                            let new_position = [
-                                current_position[0] as isize + direction[0],
-                                current_position[1] as isize + direction[1],
-                            ];
+                            inner_position[0] = new_position[0] as usize;
+                            inner_position[1] = new_position[1] as usize;
 
-                            if new_position[0] < 0
-                                || new_position[1] < 0
-                                || new_position[0] >= line.len() as isize
-                                || new_position[1] >= row_count as isize
-                            {
-                                break;
-                            }
-
-                            current_position[0] =
-                                (current_position[0] as isize + direction[0]) as usize;
-                            current_position[1] =
-                                (current_position[1] as isize + direction[1]) as usize;
-
-                            char_index += 1;
+                            // we've found X and M, so we need to look for A (char_index 2)
+                            char_index = 2;
                             target_char = TARGET.chars().nth(char_index).unwrap();
+
+                            while check_char_at_position(
+                                &letter_matrix,
+                                inner_position,
+                                &target_char,
+                            ) {
+                                // we matched an S, we found XMAS!
+                                if char_index == TARGET.len() - 1 {
+                                    result += 1;
+                                    break;
+                                }
+
+                                // move to the next position in the current direction
+                                let new_position = [
+                                    inner_position[0] as isize + direction[0],
+                                    inner_position[1] as isize + direction[1],
+                                ];
+
+                                // if we're out of bounds now, break out
+                                if new_position[0] < 0
+                                    || new_position[1] < 0
+                                    || new_position[0] >= line.len() as isize
+                                    || new_position[1] >= row_count as isize
+                                {
+                                    break;
+                                }
+
+                                inner_position[0] = new_position[0] as usize; // we've already checked that its not a negative number
+                                inner_position[1] = new_position[1] as usize;
+
+                                char_index += 1;
+                                target_char = TARGET.chars().nth(char_index).unwrap();
+                            }
                         }
                     }
                 }
@@ -74,12 +88,13 @@ pub fn process(_input: &str) -> miette::Result<String> {
     Ok(result.to_string())
 }
 
+#[instrument]
 fn check_neighbors(
     letter_matrix: &Vec<Vec<char>>,
     position: [usize; 2],
     matrix_size: [usize; 2],
     target_char: &char,
-) -> Option<[isize; 2]> {
+) -> Option<Vec<[isize; 2]>> {
     let position_x = position[0];
     let position_y = position[1];
 
@@ -94,31 +109,33 @@ fn check_neighbors(
         position_y - 1..=cmp::min(position_y + 1, matrix_size[1] - 1)
     };
 
+    let mut matches: Vec<[isize; 2]> = vec![];
+
     for y in y_range {
         for x in x_range.clone() {
             if check_char_at_position(letter_matrix, [x, y], target_char) {
                 let direction_x = (x as isize - position_x as isize).signum();
                 let direction_y = (y as isize - position_y as isize).signum();
 
-                return Some([direction_x, direction_y]);
+                matches.push([direction_x, direction_y]);
             }
         }
     }
 
-    None
+    if matches.len() > 0 {
+        return Some(matches);
+    } else {
+        return None;
+    }
 }
 
+#[instrument]
 fn check_char_at_position(
     letter_matrix: &Vec<Vec<char>>,
     position: [usize; 2],
     char: &char,
 ) -> bool {
-    if &letter_matrix[position[1]][position[0]] == char {
-        println!("Found {char} at {}, {}", position[0], position[1]);
-        return true;
-    }
-
-    false
+    &letter_matrix[position[1]][position[0]] == char
 }
 
 #[cfg(test)]
