@@ -18,12 +18,8 @@ pub fn process(_input: &str) -> miette::Result<String> {
         let left = left_location_ids[i];
         let right = right_location_ids[i];
 
-        println!("{left} - {right}");
-
         diff += (left - right).abs();
     }
-
-    println!("Result: {diff}");
 
     Ok(diff.to_string())
 }

@@ -6,8 +6,6 @@ type Report = Vec<i32>;
 pub fn process(_input: &str) -> miette::Result<String> {
     let mut result = 0;
     for (index, report_str) in _input.lines().enumerate() {
-        println!("Report: {index}");
-
         let report: Report = report_str
             .split_whitespace()
             .map(|x| x.parse::<i32>().unwrap())
@@ -15,9 +13,8 @@ pub fn process(_input: &str) -> miette::Result<String> {
         
         let safety_result = check_safety(&report);
 
-        match safety_result {
-            Ok(_) => result += 1,
-            Err(e) => println!("{:?}", e)
+        if safety_result.is_ok() {
+            result += 1;
         }
     }
 
@@ -31,7 +28,6 @@ enum Direction {
 
 #[instrument(ret)]
 fn check_safety(report: &Report) -> Result<(), String> {
-    println!("{report:?}");
     let mut last_level = -1;
     let mut direction: Option<Direction> = None;
 

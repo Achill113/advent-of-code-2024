@@ -24,9 +24,8 @@ pub fn process(_input: &str) -> miette::Result<String> {
             }
         }
 
-        match safety_result {
-            Ok(_) => result += 1,
-            Err(e) => println!("{:?}", e)
+        if safety_result.is_ok() {
+            result += 1;
         }
     }
 
